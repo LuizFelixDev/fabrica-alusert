@@ -53,6 +53,53 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
 
     await client.query('BEGIN');
 
+    let finalCodigoBarras = codigo_barras;
+    if (!finalCodigoBarras) {
+      const seqRes = await client.query('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM produtos');
+      const nextId = seqRes.rows[0].next_id;
+      const seqStr = String(nextId).padStart(3, '0');
+
+      let catPrefix = (categoria || 'PROD').trim().toUpperCase();
+      if (catPrefix.startsWith('CUSC')) {
+        catPrefix = 'CUSC';
+      } else if (catPrefix.startsWith('CAFE') || catPrefix.startsWith('CAFEI')) {
+        catPrefix = 'CAF';
+      } else {
+        catPrefix = catPrefix.substring(0, Math.min(4, catPrefix.length));
+      }
+
+      let sizeStr = '';
+      if (tamanho_numero !== undefined && tamanho_numero !== null) {
+        const num = Number(tamanho_numero);
+        if (!isNaN(num)) {
+          if (num % 1 !== 0) {
+            sizeStr = String(num).replace('.', '');
+          } else {
+            sizeStr = String(Math.floor(num));
+          }
+        }
+      }
+
+      if (unidade_medida && unidade_medida.trim().toUpperCase() === 'L') {
+        sizeStr += 'L';
+      }
+
+      if (!sizeStr) {
+        const words = nome.trim().split(/\s+/);
+        if (words.length > 1) {
+          sizeStr = words[1].substring(0, 3).toUpperCase();
+        }
+      }
+
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const year = String(today.getFullYear()).slice(-2);
+      const dateStr = `${day}${month}${year}`;
+
+      finalCodigoBarras = `${catPrefix}${sizeStr}-${dateStr}-${seqStr}`;
+    }
+
     // Insert product
     const productRes = await client.query(
       `INSERT INTO produtos (
@@ -61,7 +108,7 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
        RETURNING *`,
       [
-        codigo_barras || null,
+        finalCodigoBarras || null,
         nome,
         descricao || null,
         categoria || null,
