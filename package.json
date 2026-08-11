@@ -2,6 +2,7 @@
   "name": "fabrica-api",
   "version": "1.0.0",
   "description": "API para a fabrica usando Express, TypeScript e PostgreSQL",
+  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
