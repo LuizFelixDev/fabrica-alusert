@@ -5,20 +5,29 @@ dotenv.config();
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgres',
-  database: process.env.DB_NAME || 'fabrica',
-});
+const isSslRequired = process.env.DATABASE_URL?.includes('sslmode=require') || false;
+
+export const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: isSslRequired ? { rejectUnauthorized: false } : false,
+      }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_NAME || 'fabrica',
+      }
+);
 
 // Test connection
 pool.connect((err, client, release) => {
   if (err) {
     console.error('Error acquiring client from pool:', err.stack);
   } else {
-    console.log('Successfully connected to PostgreSQL database:', process.env.DB_NAME || 'fabrica');
-    release();
+    console.log('Successfully connected to PostgreSQL database');
+    if (release) release();
   }
 });
