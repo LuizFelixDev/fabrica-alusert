@@ -3,6 +3,7 @@ DROP TABLE IF EXISTS venda_itens CASCADE;
 DROP TABLE IF EXISTS vendas CASCADE;
 DROP TABLE IF EXISTS clientes CASCADE;
 DROP TABLE IF EXISTS produto_materia_prima CASCADE;
+DROP TABLE IF EXISTS produto_especificacao CASCADE;
 DROP TABLE IF EXISTS produtos CASCADE;
 DROP TABLE IF EXISTS materias_primas CASCADE;
 DROP TABLE IF EXISTS usuarios CASCADE;
@@ -76,6 +77,15 @@ CREATE TABLE produtos (
   status BOOLEAN DEFAULT TRUE,
   data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: produto_especificacao
+CREATE TABLE produto_especificacao (
+  id SERIAL PRIMARY KEY,
+  produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+  tipo_componente VARCHAR(50),      -- ex: "disco maior", "disco menor"
+  diametro_mm DECIMAL(6,2),         -- ex: 260.00
+  altura_mm DECIMAL(6,2)            -- ex: 90.00
 );
 
 -- Table: produto_materia_prima (Relation / Bill of Materials)
