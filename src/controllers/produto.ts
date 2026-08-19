@@ -1,9 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { pool } from '../config/database.js';
+import { generateBarcode } from '../utils/barcode.js';
 
 export const listProdutos = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await pool.query('SELECT * FROM produtos ORDER BY id ASC');
+    const result = await pool.query(`
+      SELECT p.*, 
+             COALESCE(
+               (SELECT json_agg(json_build_object(
+                         'id', pe.id,
+                         'tipo_componente', pe.tipo_componente,
+                         'diametro_mm', pe.diametro_mm,
+                         'altura_mm', pe.altura_mm,
+                         'preco_custo', pe.preco_custo,
+                         'peso', pe.peso
+                       ))
+                FROM produto_especificacao pe
+                WHERE pe.produto_id = p.id), 
+               '[]'::json
+             ) AS especificacoes
+      FROM produtos p
+      ORDER BY p.id ASC
+    `);
     res.json(result.rows);
   } catch (error) {
     next(error);
@@ -32,6 +50,13 @@ export const getProdutoById = async (req: Request, res: Response, next: NextFunc
     
     product.materias_primas = materialsRes.rows;
 
+    // Fetch associated specifications
+    const specsRes = await pool.query(
+      'SELECT id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso FROM produto_especificacao WHERE produto_id = $1',
+      [id]
+    );
+    product.especificacoes = specsRes.rows;
+
     res.json(product);
   } catch (error) {
     next(error);
@@ -44,7 +69,8 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
       quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
-      materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
+      materias_primas, // Array of { id_materia_prima: number, quantidade_utilizada: number }
+      especificacoes // Array of { tipo_componente: string, diametro_mm: number, altura_mm: number }
     } = req.body;
 
     if (!nome) {
@@ -55,49 +81,7 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
 
     let finalCodigoBarras = codigo_barras;
     if (!finalCodigoBarras) {
-      const seqRes = await client.query('SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM produtos');
-      const nextId = seqRes.rows[0].next_id;
-      const seqStr = String(nextId).padStart(3, '0');
-
-      let catPrefix = (categoria || 'PROD').trim().toUpperCase();
-      if (catPrefix.startsWith('CUSC')) {
-        catPrefix = 'CUSC';
-      } else if (catPrefix.startsWith('CAFE') || catPrefix.startsWith('CAFEI')) {
-        catPrefix = 'CAF';
-      } else {
-        catPrefix = catPrefix.substring(0, Math.min(4, catPrefix.length));
-      }
-
-      let sizeStr = '';
-      if (tamanho_numero !== undefined && tamanho_numero !== null) {
-        const num = Number(tamanho_numero);
-        if (!isNaN(num)) {
-          if (num % 1 !== 0) {
-            sizeStr = String(num).replace('.', '');
-          } else {
-            sizeStr = String(Math.floor(num));
-          }
-        }
-      }
-
-      if (unidade_medida && unidade_medida.trim().toUpperCase() === 'L') {
-        sizeStr += 'L';
-      }
-
-      if (!sizeStr) {
-        const words = nome.trim().split(/\s+/);
-        if (words.length > 1) {
-          sizeStr = words[1].substring(0, 3).toUpperCase();
-        }
-      }
-
-      const today = new Date();
-      const day = String(today.getDate()).padStart(2, '0');
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const year = String(today.getFullYear()).slice(-2);
-      const dateStr = `${day}${month}${year}`;
-
-      finalCodigoBarras = `${catPrefix}${sizeStr}-${dateStr}-${seqStr}`;
+      finalCodigoBarras = await generateBarcode(client, nome, categoria, tamanho_numero, unidade_medida);
     }
 
     // Insert product
@@ -138,9 +122,31 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
       }
     }
 
+    // Insert associated specifications if provided
+    if (Array.isArray(especificacoes) && especificacoes.length > 0) {
+      for (const spec of especificacoes) {
+        if (!spec.tipo_componente || spec.diametro_mm === undefined || spec.altura_mm === undefined) {
+          throw new Error('Cada especificação deve conter tipo_componente, diametro_mm e altura_mm');
+        }
+        await client.query(
+          `INSERT INTO produto_especificacao (produto_id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            newProduct.id,
+            spec.tipo_componente,
+            spec.diametro_mm,
+            spec.altura_mm,
+            spec.preco_custo !== undefined ? spec.preco_custo : null,
+            spec.peso !== undefined ? spec.peso : null
+          ]
+        );
+      }
+    }
+
     await client.query('COMMIT');
     
     newProduct.materias_primas = materias_primas || [];
+    newProduct.especificacoes = especificacoes || [];
     res.status(201).json(newProduct);
   } catch (error: any) {
     await client.query('ROLLBACK');
@@ -160,7 +166,8 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
       quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
-      materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
+      materias_primas, // Array of { id_materia_prima: number, quantidade_utilizada: number }
+      especificacoes // Array of { tipo_componente: string, diametro_mm: number, altura_mm: number }
     } = req.body;
 
     const check = await client.query('SELECT * FROM produtos WHERE id = $1', [id]);
@@ -171,6 +178,18 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
 
     await client.query('BEGIN');
 
+    let finalCodigoBarras = codigo_barras !== undefined ? codigo_barras : current.codigo_barras;
+    if (finalCodigoBarras === '' || finalCodigoBarras === null) {
+      finalCodigoBarras = await generateBarcode(
+        client,
+        nome !== undefined ? nome : current.nome,
+        categoria !== undefined ? categoria : current.categoria,
+        tamanho_numero !== undefined ? tamanho_numero : current.tamanho_numero,
+        unidade_medida !== undefined ? unidade_medida : current.unidade_medida,
+        Number(id)
+      );
+    }
+
     // Update product
     const productRes = await client.query(
       `UPDATE produtos SET
@@ -180,7 +199,7 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
        WHERE id = $13
        RETURNING *`,
       [
-        codigo_barras !== undefined ? codigo_barras : current.codigo_barras,
+        finalCodigoBarras,
         nome !== undefined ? nome : current.nome,
         descricao !== undefined ? descricao : current.descricao,
         categoria !== undefined ? categoria : current.categoria,
@@ -215,6 +234,31 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
       }
     }
 
+    // Replace old specifications with new specifications if supplied
+    if (especificacoes !== undefined) {
+      await client.query('DELETE FROM produto_especificacao WHERE produto_id = $1', [id]);
+
+      if (Array.isArray(especificacoes) && especificacoes.length > 0) {
+        for (const spec of especificacoes) {
+          if (!spec.tipo_componente || spec.diametro_mm === undefined || spec.altura_mm === undefined) {
+            throw new Error('Cada especificação deve conter tipo_componente, diametro_mm e altura_mm');
+          }
+          await client.query(
+            `INSERT INTO produto_especificacao (produto_id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              id,
+              spec.tipo_componente,
+              spec.diametro_mm,
+              spec.altura_mm,
+              spec.preco_custo !== undefined ? spec.preco_custo : null,
+              spec.peso !== undefined ? spec.peso : null
+            ]
+          );
+        }
+      }
+    }
+
     await client.query('COMMIT');
     
     const finalMaterials = await pool.query(
@@ -225,6 +269,14 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
       [id]
     );
     updatedProduct.materias_primas = finalMaterials.rows;
+
+    const finalSpecs = await pool.query(
+      `SELECT id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso
+       FROM produto_especificacao
+       WHERE produto_id = $1`,
+      [id]
+    );
+    updatedProduct.especificacoes = finalSpecs.rows;
 
     res.json(updatedProduct);
   } catch (error: any) {

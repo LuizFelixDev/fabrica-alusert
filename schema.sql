@@ -85,7 +85,9 @@ CREATE TABLE produto_especificacao (
   produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
   tipo_componente VARCHAR(50),      -- ex: "disco maior", "disco menor"
   diametro_mm DECIMAL(6,2),         -- ex: 260.00
-  altura_mm DECIMAL(6,2)            -- ex: 90.00
+  altura_mm DECIMAL(6,2),           -- ex: 90.00
+  preco_custo DECIMAL(10,2),
+  peso DECIMAL(6,3)
 );
 
 -- Table: produto_materia_prima (Relation / Bill of Materials)
