@@ -57,7 +57,11 @@ CREATE TABLE materias_primas (
   unidade_medida unidade_medida_enum NOT NULL,
   quantidade_estoque DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   valor_unitario DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  estoque_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00
+  estoque_minimo DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  tipo_componente VARCHAR(50),
+  diametro_mm DECIMAL(6,2),
+  altura_mm DECIMAL(6,2),
+  peso DECIMAL(6,3)
 );
 
 -- Table: produtos
@@ -77,17 +81,6 @@ CREATE TABLE produtos (
   status BOOLEAN DEFAULT TRUE,
   data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Table: produto_especificacao
-CREATE TABLE produto_especificacao (
-  id SERIAL PRIMARY KEY,
-  produto_id INT NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
-  tipo_componente VARCHAR(50),      -- ex: "disco maior", "disco menor"
-  diametro_mm DECIMAL(6,2),         -- ex: 260.00
-  altura_mm DECIMAL(6,2),           -- ex: 90.00
-  preco_custo DECIMAL(10,2),
-  peso DECIMAL(6,3)
 );
 
 -- Table: produto_materia_prima (Relation / Bill of Materials)

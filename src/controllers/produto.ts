@@ -8,17 +8,21 @@ export const listProdutos = async (req: Request, res: Response, next: NextFuncti
       SELECT p.*, 
              COALESCE(
                (SELECT json_agg(json_build_object(
-                         'id', pe.id,
-                         'tipo_componente', pe.tipo_componente,
-                         'diametro_mm', pe.diametro_mm,
-                         'altura_mm', pe.altura_mm,
-                         'preco_custo', pe.preco_custo,
-                         'peso', pe.peso
+                         'id_materia_prima', mp.id,
+                         'nome', mp.nome,
+                         'unidade_medida', mp.unidade_medida,
+                         'quantidade_utilizada', pmp.quantidade_utilizada,
+                         'tipo_componente', mp.tipo_componente,
+                         'diametro_mm', mp.diametro_mm,
+                         'altura_mm', mp.altura_mm,
+                         'peso', mp.peso,
+                         'valor_unitario', mp.valor_unitario
                        ))
-                FROM produto_especificacao pe
-                WHERE pe.produto_id = p.id), 
+                FROM produto_materia_prima pmp
+                JOIN materias_primas mp ON pmp.id_materia_prima = mp.id
+                WHERE pmp.id_produto = p.id), 
                '[]'::json
-             ) AS especificacoes
+             ) AS materias_primas
       FROM produtos p
       ORDER BY p.id ASC
     `);
@@ -41,7 +45,8 @@ export const getProdutoById = async (req: Request, res: Response, next: NextFunc
 
     // Fetch associated raw materials
     const materialsRes = await pool.query(
-      `SELECT pmp.id as link_id, mp.id as id_materia_prima, mp.nome, mp.unidade_medida, pmp.quantidade_utilizada
+      `SELECT pmp.id as link_id, mp.id as id_materia_prima, mp.nome, mp.unidade_medida, pmp.quantidade_utilizada,
+              mp.tipo_componente, mp.diametro_mm, mp.altura_mm, mp.peso, mp.valor_unitario
        FROM produto_materia_prima pmp
        JOIN materias_primas mp ON pmp.id_materia_prima = mp.id
        WHERE pmp.id_produto = $1`,
@@ -49,13 +54,6 @@ export const getProdutoById = async (req: Request, res: Response, next: NextFunc
     );
     
     product.materias_primas = materialsRes.rows;
-
-    // Fetch associated specifications
-    const specsRes = await pool.query(
-      'SELECT id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso FROM produto_especificacao WHERE produto_id = $1',
-      [id]
-    );
-    product.especificacoes = specsRes.rows;
 
     res.json(product);
   } catch (error) {
@@ -69,8 +67,7 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
       quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
-      materias_primas, // Array of { id_materia_prima: number, quantidade_utilizada: number }
-      especificacoes // Array of { tipo_componente: string, diametro_mm: number, altura_mm: number }
+      materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
     } = req.body;
 
     if (!nome) {
@@ -122,31 +119,18 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
       }
     }
 
-    // Insert associated specifications if provided
-    if (Array.isArray(especificacoes) && especificacoes.length > 0) {
-      for (const spec of especificacoes) {
-        if (!spec.tipo_componente || spec.diametro_mm === undefined || spec.altura_mm === undefined) {
-          throw new Error('Cada especificação deve conter tipo_componente, diametro_mm e altura_mm');
-        }
-        await client.query(
-          `INSERT INTO produto_especificacao (produto_id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            newProduct.id,
-            spec.tipo_componente,
-            spec.diametro_mm,
-            spec.altura_mm,
-            spec.preco_custo !== undefined ? spec.preco_custo : null,
-            spec.peso !== undefined ? spec.peso : null
-          ]
-        );
-      }
-    }
-
     await client.query('COMMIT');
     
-    newProduct.materias_primas = materias_primas || [];
-    newProduct.especificacoes = especificacoes || [];
+    // Fetch final materials with full details to return to front-end
+    const finalMaterials = await pool.query(
+      `SELECT pmp.id as link_id, mp.id as id_materia_prima, mp.nome, mp.unidade_medida, pmp.quantidade_utilizada,
+              mp.tipo_componente, mp.diametro_mm, mp.altura_mm, mp.peso, mp.valor_unitario
+       FROM produto_materia_prima pmp
+       JOIN materias_primas mp ON pmp.id_materia_prima = mp.id
+       WHERE pmp.id_produto = $1`,
+      [newProduct.id]
+    );
+    newProduct.materias_primas = finalMaterials.rows;
     res.status(201).json(newProduct);
   } catch (error: any) {
     await client.query('ROLLBACK');
@@ -166,8 +150,7 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
       quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
-      materias_primas, // Array of { id_materia_prima: number, quantidade_utilizada: number }
-      especificacoes // Array of { tipo_componente: string, diametro_mm: number, altura_mm: number }
+      materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
     } = req.body;
 
     const check = await client.query('SELECT * FROM produtos WHERE id = $1', [id]);
@@ -193,8 +176,8 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
     // Update product
     const productRes = await client.query(
       `UPDATE produtos SET
-        codigo_barras = $1, nome = $2, descricao = $3, categoria = $4, tamanho_numero = $5, unidade_medida = $6,
-        quantidade_estoque = $7, estoque_minimo = $8, peso_kg = $9, preco_custo = $10, preco_venda = $11, status = $12,
+        codigo_barras = $1, nome = $2, descricao = $3, categoria = $4, tamanho_numero = $5,
+        unidade_medida = $6, quantidade_estoque = $7, estoque_minimo = $8, peso_kg = $9, preco_custo = $10, preco_venda = $11, status = $12,
         data_atualizacao = NOW()
        WHERE id = $13
        RETURNING *`,
@@ -234,49 +217,17 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
       }
     }
 
-    // Replace old specifications with new specifications if supplied
-    if (especificacoes !== undefined) {
-      await client.query('DELETE FROM produto_especificacao WHERE produto_id = $1', [id]);
-
-      if (Array.isArray(especificacoes) && especificacoes.length > 0) {
-        for (const spec of especificacoes) {
-          if (!spec.tipo_componente || spec.diametro_mm === undefined || spec.altura_mm === undefined) {
-            throw new Error('Cada especificação deve conter tipo_componente, diametro_mm e altura_mm');
-          }
-          await client.query(
-            `INSERT INTO produto_especificacao (produto_id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [
-              id,
-              spec.tipo_componente,
-              spec.diametro_mm,
-              spec.altura_mm,
-              spec.preco_custo !== undefined ? spec.preco_custo : null,
-              spec.peso !== undefined ? spec.peso : null
-            ]
-          );
-        }
-      }
-    }
-
     await client.query('COMMIT');
     
     const finalMaterials = await pool.query(
-      `SELECT pmp.id as link_id, mp.id as id_materia_prima, mp.nome, mp.unidade_medida, pmp.quantidade_utilizada
+      `SELECT pmp.id as link_id, mp.id as id_materia_prima, mp.nome, mp.unidade_medida, pmp.quantidade_utilizada,
+              mp.tipo_componente, mp.diametro_mm, mp.altura_mm, mp.peso, mp.valor_unitario
        FROM produto_materia_prima pmp
        JOIN materias_primas mp ON pmp.id_materia_prima = mp.id
        WHERE pmp.id_produto = $1`,
       [id]
     );
     updatedProduct.materias_primas = finalMaterials.rows;
-
-    const finalSpecs = await pool.query(
-      `SELECT id, tipo_componente, diametro_mm, altura_mm, preco_custo, peso
-       FROM produto_especificacao
-       WHERE produto_id = $1`,
-      [id]
-    );
-    updatedProduct.especificacoes = finalSpecs.rows;
 
     res.json(updatedProduct);
   } catch (error: any) {

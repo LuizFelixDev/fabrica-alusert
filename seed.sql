@@ -4,13 +4,13 @@ INSERT INTO usuarios (nome, email, senha, cadastro) VALUES
 ('Administrador', 'admin@fabrica.com', '$2a$10$w857p4t4Xp5Uj2yK1Z0hG.zF.x2GjZc8qB1U9X7wE7G69fN3yW4eG', NOW());
 
 -- Seed Materias Primas
-INSERT INTO materias_primas (nome, descricao, unidade_medida, quantidade_estoque, valor_unitario, estoque_minimo) VALUES
-('Disco de Alumínio 16cm', 'Chapa circular de alumínio para repuxo', 'kg', 500.00, 15.50, 100.00),
-('Disco de Alumínio 18cm', 'Chapa circular de alumínio para repuxo', 'kg', 600.00, 17.20, 120.00),
-('Disco de Alumínio 20cm', 'Chapa circular de alumínio para repuxo', 'kg', 450.00, 19.80, 100.00),
-('Alça de Baquelite', 'Alça resistente ao calor para panelas', 'un', 1200.00, 1.20, 200.00),
-('Pino de Baquelite para Tampa', 'Puxador de baquelite para tampa', 'un', 800.00, 0.80, 150.00),
-('Parafuso Autoatarraxante', 'Parafuso para fixação da alça', 'un', 3000.00, 0.05, 500.00);
+INSERT INTO materias_primas (nome, descricao, unidade_medida, quantidade_estoque, valor_unitario, estoque_minimo, tipo_componente, diametro_mm, altura_mm, peso) VALUES
+('Disco de Alumínio 16cm', 'Chapa circular de alumínio para repuxo', 'kg', 500.00, 15.50, 100.00, 'Disco', 160.00, 50.00, 0.400),
+('Disco de Alumínio 18cm', 'Chapa circular de alumínio para repuxo', 'kg', 600.00, 17.20, 120.00, 'Disco', 180.00, 55.00, 0.480),
+('Disco de Alumínio 20cm', 'Chapa circular de alumínio para repuxo', 'kg', 450.00, 19.80, 100.00, 'Disco', 200.00, 60.00, 0.550),
+('Alça de Baquelite', 'Alça resistente ao calor para panelas', 'un', 1200.00, 1.20, 200.00, NULL, NULL, NULL, NULL),
+('Pino de Baquelite para Tampa', 'Puxador de baquelite para tampa', 'un', 800.00, 0.80, 150.00, NULL, NULL, NULL, NULL),
+('Parafuso Autoatarraxante', 'Parafuso para fixação da alça', 'un', 3000.00, 0.05, 500.00, NULL, NULL, NULL, NULL);
 
 -- Seed Produtos (based on user request)
 INSERT INTO produtos 
