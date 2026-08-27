@@ -16,13 +16,13 @@ INSERT INTO materias_primas (nome, descricao, unidade_medida, quantidade_estoque
 INSERT INTO produtos 
   (codigo_barras, nome, categoria, tamanho_numero, unidade_medida, quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status, data_cadastro)
 VALUES
-  ('CUSC16-020826-001', 'Cuscuzeira 16', 'Cuscuzeira', 16.00, 'cm', 100, 20, 0.450, 12.50, 25.00, true, NOW()),
-  ('CUSC18-020826-002', 'Cuscuzeira 18', 'Cuscuzeira', 18.00, 'cm', 150, 25, 0.520, 14.80, 29.90, true, NOW()),
-  ('CUSC20-020826-003', 'Cuscuzeira 20', 'Cuscuzeira', 20.00, 'cm', 80, 15, 0.600, 18.20, 37.50, true, NOW()),
-  ('CAF500-020826-004', 'Cafeteira 500ml', 'Cafeteira', 500.00, 'ml', 120, 30, 0.350, 9.50, 19.90, true, NOW()),
-  ('CAF1L-020826-005', 'Cafeteira 1L', 'Cafeteira', 1.00, 'L', 90, 20, 0.480, 13.00, 26.50, true, NOW()),
-  ('CAF13L-020826-006', 'Cafeteira 1.3L', 'Cafeteira', 1.30, 'L', 70, 15, 0.550, 15.50, 32.00, true, NOW()),
-  ('CUSCEXP-020826-007', 'Cuscuzeira Expresso', 'Cuscuzeira', NULL, NULL, 50, 10, 0.400, 11.00, 22.90, true, NOW());
+  ('CUSC16-020826-001', 'Cuscuzeira 16', 'Cuscuzeira', 16.00, 'un', 100, 20, 0.450, 12.50, 25.00, true, NOW()),
+  ('CUSC18-020826-002', 'Cuscuzeira 18', 'Cuscuzeira', 18.00, 'un', 150, 25, 0.520, 14.80, 29.90, true, NOW()),
+  ('CUSC20-020826-003', 'Cuscuzeira 20', 'Cuscuzeira', 20.00, 'un', 80, 15, 0.600, 18.20, 37.50, true, NOW()),
+  ('CAF500-020826-004', 'Cafeteira 500ml', 'Cafeteira', 500.00, 'un', 120, 30, 0.350, 9.50, 19.90, true, NOW()),
+  ('CAF1L-020826-005', 'Cafeteira 1L', 'Cafeteira', 1.00, 'un', 90, 20, 0.480, 13.00, 26.50, true, NOW()),
+  ('CAF13L-020826-006', 'Cafeteira 1.3L', 'Cafeteira', 1.30, 'un', 70, 15, 0.550, 15.50, 32.00, true, NOW()),
+  ('CUSCEXP-020826-007', 'Cuscuzeira Expresso', 'Cuscuzeira', NULL, 'un', 50, 10, 0.400, 11.00, 22.90, true, NOW());
 
 -- Seed Produto Materia Prima (Bill of Materials)
 -- For Cuscuzeira 16: needs 1x Disco de Alumínio 16cm (assume 0.4kg), 2x Alça de Baquelite, 1x Pino de Tampa, 2x Parafusos
