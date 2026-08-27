@@ -52,7 +52,7 @@ export const getVendaById = async (req: Request, res: Response, next: NextFuncti
 export const createVenda = async (req: Request, res: Response, next: NextFunction) => {
   const client = await pool.connect();
   try {
-    const { id_cliente, id_usuario, forma_pagamento, status, itens } = req.body;
+    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque } = req.body;
 
     if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
@@ -73,10 +73,16 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
     }
 
     const saleRes = await client.query(
-      `INSERT INTO vendas (id_cliente, id_usuario, forma_pagamento, status, valor_total)
-       VALUES ($1, $2, $3, $4, 0.00)
+      `INSERT INTO vendas (id_cliente, id_usuario, forma_pagamento, status, valor_total, data_vencimento_cheque)
+       VALUES ($1, $2, $3, $4, 0.00, $5)
        RETURNING *`,
-      [id_cliente, id_usuario, forma_pagamento, status || 'pendente']
+      [
+        id_cliente, 
+        id_usuario, 
+        forma_pagamento, 
+        status || 'pendente', 
+        forma_pagamento === 'Cheque' ? (data_vencimento_cheque || null) : null
+      ]
     );
     const sale = saleRes.rows[0];
 
