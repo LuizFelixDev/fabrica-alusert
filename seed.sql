@@ -1,7 +1,7 @@
 -- Seed Usuarios
 -- Password for admin is 'admin123' (bcrypt hash)
 INSERT INTO usuarios (nome, email, senha, cadastro) VALUES
-('Administrador', 'admin@fabrica.com', '$2a$10$w857p4t4Xp5Uj2yK1Z0hG.zF.x2GjZc8qB1U9X7wE7G69fN3yW4eG', NOW());
+('Administrador', 'admin@fabrica.com', '$2a$10$Eh9eVloUpM5.78g9OuCAZO0/NJCpVOacfXi4UTiC0h1e2Q3hLTRxi', NOW());
 
 -- Seed Materias Primas
 INSERT INTO materias_primas (nome, descricao, unidade_medida, quantidade_estoque, valor_unitario, estoque_minimo, tipo_componente, diametro_mm, altura_mm, peso) VALUES
