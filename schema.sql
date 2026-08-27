@@ -31,7 +31,8 @@ CREATE TYPE forma_pagamento_enum AS ENUM (
   'Pix',
   'Dinheiro',
   'Cartão',
-  'Boleto'
+  'Boleto',
+  'Cheque'
 );
 
 CREATE TYPE status_venda_enum AS ENUM (
@@ -113,7 +114,8 @@ CREATE TABLE vendas (
   data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   forma_pagamento forma_pagamento_enum NOT NULL,
   status status_venda_enum NOT NULL DEFAULT 'pendente',
-  valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00
+  valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  data_vencimento_cheque DATE
 );
 
 -- Table: venda_itens (Proposal: relates a sale to products)
