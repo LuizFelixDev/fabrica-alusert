@@ -98,3 +98,34 @@ export const deleteUsuario = async (req: Request, res: Response, next: NextFunct
     next(error);
   }
 };
+
+export const loginUsuario = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email, senha } = req.body;
+    if (!email || !senha) {
+      return res.status(400).json({ error: 'Campos e-mail e senha são obrigatórios' });
+    }
+
+    const emailNormalized = email.trim().toLowerCase();
+
+    const result = await pool.query('SELECT * FROM usuarios WHERE LOWER(email) = $1', [emailNormalized]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos' });
+    }
+
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(senha, user.senha);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'E-mail ou senha incorretos' });
+    }
+
+    res.json({
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      cadastro: user.cadastro
+    });
+  } catch (error) {
+    next(error);
+  }
+};
