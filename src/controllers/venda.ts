@@ -107,9 +107,6 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
       }
 
       if (status !== 'cancelada') {
-        if (product.quantidade_estoque < quantidade) {
-          throw new Error(`Estoque insuficiente para o produto "${product.nome}". Disponível: ${product.quantidade_estoque}, Solicitado: ${quantidade}`);
-        }
         await client.query(
           'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
           [quantidade, id_produto]
@@ -178,11 +175,6 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
     }
     else if (currentStatus === 'cancelada' && (status === 'pendente' || status === 'concluída')) {
       for (const item of itemsRes.rows) {
-        const prodRes = await client.query('SELECT quantidade_estoque, nome FROM produtos WHERE id = $1', [item.id_produto]);
-        const product = prodRes.rows[0];
-        if (product.quantidade_estoque < item.quantidade) {
-          throw new Error(`Estoque insuficiente para reativar a venda. Produto "${product.nome}" necessita de ${item.quantidade}, mas possui ${product.quantidade_estoque}.`);
-        }
         await client.query(
           'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
           [item.quantidade, item.id_produto]
@@ -235,6 +227,102 @@ export const deleteVenda = async (req: Request, res: Response, next: NextFunctio
   } catch (error) {
     await client.query('ROLLBACK');
     next(error);
+  } finally {
+    client.release();
+  }
+};
+
+export const updateVenda = async (req: Request, res: Response, next: NextFunction) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque } = req.body;
+
+    if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
+      return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
+    }
+
+    await client.query('BEGIN');
+
+    // Get current sale
+    const currentSaleRes = await client.query('SELECT * FROM vendas WHERE id = $1', [id]);
+    if (currentSaleRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Venda não encontrada' });
+    }
+    const currentSale = currentSaleRes.rows[0];
+
+    // Revert stock for existing sale items (if previous status was not cancelada)
+    if (currentSale.status !== 'cancelada') {
+      const oldItemsRes = await client.query('SELECT id_produto, quantidade FROM venda_itens WHERE id_venda = $1', [id]);
+      for (const oldItem of oldItemsRes.rows) {
+        await client.query(
+          'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+          [oldItem.quantidade, oldItem.id_produto]
+        );
+      }
+    }
+
+    // Delete old items
+    await client.query('DELETE FROM venda_itens WHERE id_venda = $1', [id]);
+
+    // Insert new items and deduct stock (if new status is not cancelada)
+    let total = 0;
+    const targetStatus = status || currentSale.status;
+
+    for (const item of itens) {
+      const { id_produto, quantidade, preco_unitario } = item;
+      if (!id_produto || !quantidade || quantidade <= 0) {
+        throw new Error('Cada item deve possuir id_produto e quantidade maior que 0');
+      }
+
+      const prodRes = await client.query('SELECT preco_venda, quantidade_estoque, nome FROM produtos WHERE id = $1', [id_produto]);
+      if (prodRes.rows.length === 0) {
+        throw new Error(`Produto com ID ${id_produto} não encontrado`);
+      }
+
+      const product = prodRes.rows[0];
+      const unitPrice = preco_unitario !== undefined ? preco_unitario : product.preco_venda;
+
+      if (targetStatus !== 'cancelada') {
+        await client.query(
+          'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
+          [quantidade, id_produto]
+        );
+      }
+
+      await client.query(
+        `INSERT INTO venda_itens (id_venda, id_produto, quantidade, preco_unitario)
+         VALUES ($1, $2, $3, $4)`,
+        [id, id_produto, quantidade, unitPrice]
+      );
+
+      total += Number(unitPrice) * quantidade;
+    }
+
+    // Update sale record
+    const updateSaleRes = await client.query(
+      `UPDATE vendas 
+       SET id_cliente = $1, id_usuario = $2, forma_pagamento = $3, status = $4, valor_total = $5, data_vencimento_cheque = $6
+       WHERE id = $7 RETURNING *`,
+      [
+        id_cliente,
+        id_usuario,
+        forma_pagamento,
+        targetStatus,
+        total,
+        forma_pagamento === 'Cheque' ? (data_vencimento_cheque || null) : null,
+        id
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    const finalSale = updateSaleRes.rows[0];
+    finalSale.itens = itens;
+    res.json(finalSale);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: error.message || 'Erro ao atualizar venda' });
   } finally {
     client.release();
   }
