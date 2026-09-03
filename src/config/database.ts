@@ -22,12 +22,22 @@ export const pool = new Pool(
       }
 );
 
-// Test connection
-pool.connect((err, client, release) => {
+// Test connection & auto-migrate columns
+pool.connect(async (err, client, release) => {
   if (err) {
     console.error('Error acquiring client from pool:', err.stack);
   } else {
     console.log('Successfully connected to PostgreSQL database');
-    if (release) release();
+    try {
+      if (client) {
+        await client.query(`
+          ALTER TABLE produtos ADD COLUMN IF NOT EXISTS quantidade_a_fazer INT DEFAULT 0;
+        `);
+      }
+    } catch (migErr) {
+      console.error('Auto migration note:', migErr);
+    } finally {
+      if (release) release();
+    }
   }
 });
