@@ -174,7 +174,10 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
     if ((currentStatus === 'pendente' || currentStatus === 'concluída') && status === 'cancelada') {
       for (const item of itemsRes.rows) {
         await client.query(
-          'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+          `UPDATE produtos 
+           SET quantidade_estoque = quantidade_estoque + $1,
+               quantidade_a_fazer = GREATEST(0, COALESCE(quantidade_a_fazer, 0) - $1)
+           WHERE id = $2`,
           [item.quantidade, item.id_produto]
         );
       }
@@ -220,7 +223,10 @@ export const deleteVenda = async (req: Request, res: Response, next: NextFunctio
       const itemsRes = await client.query('SELECT id_produto, quantidade FROM venda_itens WHERE id_venda = $1', [id]);
       for (const item of itemsRes.rows) {
         await client.query(
-          'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+          `UPDATE produtos 
+           SET quantidade_estoque = quantidade_estoque + $1,
+               quantidade_a_fazer = GREATEST(0, COALESCE(quantidade_a_fazer, 0) - $1)
+           WHERE id = $2`,
           [item.quantidade, item.id_produto]
         );
       }
@@ -262,7 +268,10 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
       const oldItemsRes = await client.query('SELECT id_produto, quantidade FROM venda_itens WHERE id_venda = $1', [id]);
       for (const oldItem of oldItemsRes.rows) {
         await client.query(
-          'UPDATE produtos SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+          `UPDATE produtos 
+           SET quantidade_estoque = quantidade_estoque + $1,
+               quantidade_a_fazer = GREATEST(0, COALESCE(quantidade_a_fazer, 0) - $1)
+           WHERE id = $2`,
           [oldItem.quantidade, oldItem.id_produto]
         );
       }
