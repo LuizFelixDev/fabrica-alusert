@@ -107,9 +107,15 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
       }
 
       if (status !== 'cancelada') {
+        const stockQty = Number(product.quantidade_estoque || 0);
+        const shortage = Math.max(0, quantidade - Math.max(0, stockQty));
+
         await client.query(
-          'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
-          [quantidade, id_produto]
+          `UPDATE produtos 
+           SET quantidade_estoque = quantidade_estoque - $1,
+               quantidade_a_fazer = COALESCE(quantidade_a_fazer, 0) + $2 
+           WHERE id = $3`,
+          [quantidade, shortage, id_produto]
         );
       }
 
@@ -284,9 +290,15 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
       const unitPrice = preco_unitario !== undefined ? preco_unitario : product.preco_venda;
 
       if (targetStatus !== 'cancelada') {
+        const stockQty = Number(product.quantidade_estoque || 0);
+        const shortage = Math.max(0, quantidade - Math.max(0, stockQty));
+
         await client.query(
-          'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',
-          [quantidade, id_produto]
+          `UPDATE produtos 
+           SET quantidade_estoque = quantidade_estoque - $1,
+               quantidade_a_fazer = COALESCE(quantidade_a_fazer, 0) + $2 
+           WHERE id = $3`,
+          [quantidade, shortage, id_produto]
         );
       }
 
