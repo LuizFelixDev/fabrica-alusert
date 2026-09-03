@@ -32,6 +32,7 @@ pool.connect(async (err, client, release) => {
       if (client) {
         await client.query(`
           ALTER TABLE produtos ADD COLUMN IF NOT EXISTS quantidade_a_fazer INT DEFAULT 0;
+          UPDATE produtos SET quantidade_a_fazer = 0 WHERE quantidade_estoque >= 0;
         `);
       }
     } catch (migErr) {
