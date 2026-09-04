@@ -15,11 +15,19 @@ export const generateBarcode = async (
   }
   const seqStr = String(idToUse).padStart(3, '0');
 
-  let catPrefix = (categoria || 'PROD').trim().toUpperCase();
+  let catPrefix = (categoria || 'PROD')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ç/gi, 'c')
+    .replace(/Ç/g, 'C')
+    .trim()
+    .toUpperCase();
   if (catPrefix.startsWith('CUSC')) {
     catPrefix = 'CUSC';
   } else if (catPrefix.startsWith('CAFE') || catPrefix.startsWith('CAFEI')) {
     catPrefix = 'CAF';
+  } else if (catPrefix.startsWith('CACA') || catPrefix.startsWith('CASA')) {
+    catPrefix = 'CACA';
   } else {
     catPrefix = catPrefix.substring(0, Math.min(4, catPrefix.length));
   }
