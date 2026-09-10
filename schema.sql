@@ -1,4 +1,6 @@
 -- Drop tables if they exist (for clean migrations/recreations)
+DROP TABLE IF EXISTS catalogo_itens CASCADE;
+DROP TABLE IF EXISTS catalogos CASCADE;
 DROP TABLE IF EXISTS venda_itens CASCADE;
 DROP TABLE IF EXISTS vendas CASCADE;
 DROP TABLE IF EXISTS clientes CASCADE;
@@ -106,11 +108,31 @@ CREATE TABLE clientes (
   data_cadastro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table: catalogos
+CREATE TABLE catalogos (
+  id SERIAL PRIMARY KEY,
+  id_cliente INT NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  token_link VARCHAR(36) NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
+  ativo BOOLEAN NOT NULL DEFAULT TRUE,
+  data_criacao TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: catalogo_itens
+CREATE TABLE catalogo_itens (
+  id SERIAL PRIMARY KEY,
+  id_catalogo INT NOT NULL REFERENCES catalogos(id) ON DELETE CASCADE,
+  id_produto INT NOT NULL REFERENCES produtos(id) ON DELETE RESTRICT,
+  preco_negociado DECIMAL(10,2),
+  visivel BOOLEAN NOT NULL DEFAULT TRUE,
+  CONSTRAINT uk_catalogo_produto UNIQUE (id_catalogo, id_produto)
+);
+
 -- Table: vendas
 CREATE TABLE vendas (
   id SERIAL PRIMARY KEY,
   id_cliente INT REFERENCES clientes(id) ON DELETE RESTRICT,
   id_usuario INT REFERENCES usuarios(id) ON DELETE RESTRICT,
+  id_catalogo INT REFERENCES catalogos(id) ON DELETE SET NULL,
   data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   forma_pagamento forma_pagamento_enum NOT NULL,
   status status_venda_enum NOT NULL DEFAULT 'pendente',

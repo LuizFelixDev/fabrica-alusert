@@ -17,6 +17,11 @@ app.get('/', (req, res) => {
   });
 });
 
+import { publicCatalogoRouter } from './routes/catalogo.js';
+
+// Public Catalog Router (accessible directly at /catalogo)
+app.use('/catalogo', publicCatalogoRouter);
+
 // API Routes
 app.use('/api', apiRouter);
 

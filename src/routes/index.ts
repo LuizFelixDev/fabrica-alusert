@@ -5,6 +5,8 @@ import { router as materiaPrimaRouter } from './materia-prima.js';
 import { router as produtoRouter } from './produto.js';
 import { router as vendaRouter } from './venda.js';
 
+import { internalCatalogoRouter, publicCatalogoRouter } from './catalogo.js';
+
 export const router = Router();
 
 router.use('/usuarios', usuarioRouter);
@@ -12,3 +14,6 @@ router.use('/clientes', clienteRouter);
 router.use('/materias-primas', materiaPrimaRouter);
 router.use('/produtos', produtoRouter);
 router.use('/vendas', vendaRouter);
+router.use('/catalogos', internalCatalogoRouter);
+router.use('/catalogo', publicCatalogoRouter);
+
