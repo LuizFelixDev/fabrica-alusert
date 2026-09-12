@@ -13,7 +13,14 @@ import crypto from 'crypto';
  */
 export const getCatalogoPublico = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { token_link } = req.params;
+    let token_link = req.params.token_link;
+
+    if (!token_link || token_link === 'demo' || token_link === 'latest' || token_link === 'default') {
+      const latestRes = await pool.query(`SELECT token_link FROM catalogos WHERE ativo = TRUE ORDER BY id DESC LIMIT 1`);
+      if (latestRes.rows.length > 0) {
+        token_link = latestRes.rows[0].token_link;
+      }
+    }
 
     const catalogRes = await pool.query(
       `SELECT c.id, c.id_cliente, c.token_link, c.ativo, c.data_criacao,
@@ -80,13 +87,20 @@ export const getCatalogoPublico = async (req: Request, res: Response, next: Next
 export const createPedidoPublico = async (req: Request, res: Response, next: NextFunction) => {
   const client = await pool.connect();
   try {
-    const { token_link } = req.params;
+    let token_link = req.params.token_link;
     const rawItens = req.body.itens || (Array.isArray(req.body) ? req.body : null);
     const formaPagamento = req.body.forma_pagamento || 'Pix';
     const idUsuario = req.body.id_usuario || null;
 
     if (!Array.isArray(rawItens) || rawItens.length === 0) {
       return res.status(400).json({ error: 'O pedido deve conter uma lista não vazia de itens.' });
+    }
+
+    if (!token_link || token_link === 'demo' || token_link === 'latest' || token_link === 'default') {
+      const latestRes = await client.query(`SELECT token_link FROM catalogos WHERE ativo = TRUE ORDER BY id DESC LIMIT 1`);
+      if (latestRes.rows.length > 0) {
+        token_link = latestRes.rows[0].token_link;
+      }
     }
 
     await client.query('BEGIN');
