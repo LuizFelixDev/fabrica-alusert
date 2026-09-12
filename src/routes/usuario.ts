@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
 import {
   listUsuarios,
   getUsuarioById,
@@ -10,9 +11,10 @@ import {
 
 export const router = Router();
 
-router.get('/', listUsuarios);
-router.get('/:id', getUsuarioById);
-router.post('/', createUsuario);
-router.post('/login', loginUsuario);
-router.put('/:id', updateUsuario);
-router.delete('/:id', deleteUsuario);
+router.get('/', requireAuth, listUsuarios);
+router.get('/:id', requireAuth, getUsuarioById);
+router.post('/', requireAuth, createUsuario);
+router.post('/login', loginUsuario); // Public login route
+router.put('/:id', requireAuth, updateUsuario);
+router.delete('/:id', requireAuth, deleteUsuario);
+

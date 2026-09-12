@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
 import {
   listMateriasPrimas,
   getMateriaPrimaById,
@@ -9,8 +10,9 @@ import {
 
 export const router = Router();
 
-router.get('/', listMateriasPrimas);
-router.get('/:id', getMateriaPrimaById);
-router.post('/', createMateriaPrima);
-router.put('/:id', updateMateriaPrima);
-router.delete('/:id', deleteMateriaPrima);
+router.get('/', requireAuth, listMateriasPrimas);
+router.get('/:id', requireAuth, getMateriaPrimaById);
+router.post('/', requireAuth, createMateriaPrima);
+router.put('/:id', requireAuth, updateMateriaPrima);
+router.delete('/:id', requireAuth, deleteMateriaPrima);
+

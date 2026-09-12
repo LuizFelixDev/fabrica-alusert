@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
 import {
   listVendas,
   getVendaById,
@@ -10,9 +11,10 @@ import {
 
 export const router = Router();
 
-router.get('/', listVendas);
-router.get('/:id', getVendaById);
-router.post('/', createVenda);
-router.put('/:id', updateVenda);
-router.patch('/:id/status', updateVendaStatus);
-router.delete('/:id', deleteVenda);
+router.get('/', requireAuth, listVendas);
+router.get('/:id', requireAuth, getVendaById);
+router.post('/', requireAuth, createVenda);
+router.put('/:id', requireAuth, updateVenda);
+router.patch('/:id/status', requireAuth, updateVendaStatus);
+router.delete('/:id', requireAuth, deleteVenda);
+
