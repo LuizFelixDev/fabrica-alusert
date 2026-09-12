@@ -7,6 +7,159 @@ import crypto from 'crypto';
 // -----------------------------------------------------------------------------
 
 /**
+ * GET /catalogo/geral (Public)
+ * Retorna o catálogo oficial/geral com TODOS os produtos ativos e preços padrão.
+ */
+export const getCatalogoGeral = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const itemsRes = await pool.query(
+      `SELECT 
+         p.id AS id_produto,
+         p.codigo_barras,
+         p.nome,
+         p.descricao,
+         p.categoria,
+         p.tamanho_numero,
+         p.unidade_medida,
+         p.quantidade_estoque,
+         p.peso_kg,
+         p.preco_venda AS preco,
+         p.preco_venda AS preco_padrao,
+         NULL AS preco_negociado
+       FROM produtos p
+       WHERE p.status = TRUE
+       ORDER BY p.nome ASC`
+    );
+
+    res.json({
+      id: null,
+      id_cliente: null,
+      nome_cliente: null,
+      nome_catalogo: 'Catálogo Oficial AluSert',
+      tipo: 'geral',
+      ativo: true,
+      data_criacao: new Date().toISOString(),
+      produtos: itemsRes.rows.map(item => ({
+        ...item,
+        preco: Number(item.preco),
+        preco_padrao: Number(item.preco_padrao),
+        preco_negociado: null
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /catalogo/geral/pedido (Public)
+ * Processa a criação de um pedido público geral (sem cliente específico).
+ */
+export const createPedidoGeral = async (req: Request, res: Response, next: NextFunction) => {
+  const client = await pool.connect();
+  try {
+    const rawItens = req.body.itens || (Array.isArray(req.body) ? req.body : null);
+    const formaPagamento = req.body.forma_pagamento || 'Pix';
+
+    if (!Array.isArray(rawItens) || rawItens.length === 0) {
+      return res.status(400).json({ error: 'O pedido deve conter uma lista não vazia de itens.' });
+    }
+
+    await client.query('BEGIN');
+
+    const saleRes = await client.query(
+      `INSERT INTO vendas (id_cliente, id_usuario, id_catalogo, forma_pagamento, status, valor_total)
+       VALUES (NULL, NULL, NULL, $1, 'pendente', 0.00)
+       RETURNING *`,
+      [formaPagamento]
+    );
+    const sale = saleRes.rows[0];
+
+    let total = 0;
+    const createdItens = [];
+
+    for (const item of rawItens) {
+      const { id_produto, quantidade } = item;
+      if (!id_produto || !quantidade || quantidade <= 0) {
+        throw new Error('Cada item deve possuir id_produto e quantidade maior que 0.');
+      }
+
+      const prodRes = await client.query(
+        `SELECT id, nome, preco_venda, quantidade_estoque, status
+         FROM produtos
+         WHERE id = $1`,
+        [id_produto]
+      );
+
+      if (prodRes.rows.length === 0 || !prodRes.rows[0].status) {
+        throw new Error(`Produto ID ${id_produto} não está disponível no catálogo.`);
+      }
+
+      const dbItem = prodRes.rows[0];
+      const unitPrice = Number(dbItem.preco_venda);
+
+      if (isNaN(unitPrice)) {
+        throw new Error(`Preço não definido para o produto "${dbItem.nome}".`);
+      }
+
+      const stockQty = Number(dbItem.quantidade_estoque || 0);
+      const shortage = Math.max(0, quantidade - Math.max(0, stockQty));
+
+      await client.query(
+        `UPDATE produtos 
+         SET quantidade_estoque = quantidade_estoque - $1,
+             quantidade_a_fazer = COALESCE(quantidade_a_fazer, 0) + $2 
+         WHERE id = $3`,
+        [quantidade, shortage, id_produto]
+      );
+
+      await client.query(
+        `INSERT INTO venda_itens (id_venda, id_produto, quantidade, preco_unitario)
+         VALUES ($1, $2, $3, $4)`,
+        [sale.id, id_produto, quantidade, unitPrice]
+      );
+
+      total += unitPrice * quantidade;
+      createdItens.push({
+        id_produto,
+        nome_produto: dbItem.nome,
+        quantidade,
+        preco_unitario: unitPrice,
+        subtotal: unitPrice * quantidade
+      });
+    }
+
+    const updatedSaleRes = await client.query(
+      `UPDATE vendas SET valor_total = $1 WHERE id = $2 RETURNING *`,
+      [total, sale.id]
+    );
+
+    await client.query('COMMIT');
+
+    const finalSale = updatedSaleRes.rows[0];
+
+    res.status(201).json({
+      message: 'Pedido criado com sucesso',
+      numero_pedido: `#${finalSale.id}`,
+      id_pedido: finalSale.id,
+      id_venda: finalSale.id,
+      id_cliente: null,
+      id_catalogo: null,
+      status: finalSale.status,
+      forma_pagamento: finalSale.forma_pagamento,
+      valor_total: Number(finalSale.valor_total),
+      data_venda: finalSale.data_venda,
+      itens: createdItens
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: error.message || 'Erro ao processar pedido do catálogo público' });
+  } finally {
+    client.release();
+  }
+};
+
+/**
  * GET /catalogo/:token_link (Public)
  * Retorna o catálogo ativo e seus produtos visíveis com preços resolvidos.
  * NUNCA expõe preco_custo nem outros dados sensíveis.
@@ -15,11 +168,8 @@ export const getCatalogoPublico = async (req: Request, res: Response, next: Next
   try {
     let token_link = req.params.token_link;
 
-    if (!token_link || token_link === 'demo' || token_link === 'latest' || token_link === 'default') {
-      const latestRes = await pool.query(`SELECT token_link FROM catalogos WHERE ativo = TRUE ORDER BY id DESC LIMIT 1`);
-      if (latestRes.rows.length > 0) {
-        token_link = latestRes.rows[0].token_link;
-      }
+    if (!token_link || token_link === 'geral' || token_link === 'oficial') {
+      return getCatalogoGeral(req, res, next);
     }
 
     const catalogRes = await pool.query(
@@ -96,11 +246,8 @@ export const createPedidoPublico = async (req: Request, res: Response, next: Nex
       return res.status(400).json({ error: 'O pedido deve conter uma lista não vazia de itens.' });
     }
 
-    if (!token_link || token_link === 'demo' || token_link === 'latest' || token_link === 'default') {
-      const latestRes = await client.query(`SELECT token_link FROM catalogos WHERE ativo = TRUE ORDER BY id DESC LIMIT 1`);
-      if (latestRes.rows.length > 0) {
-        token_link = latestRes.rows[0].token_link;
-      }
+    if (!token_link || token_link === 'geral' || token_link === 'oficial') {
+      return createPedidoGeral(req, res, next);
     }
 
     await client.query('BEGIN');

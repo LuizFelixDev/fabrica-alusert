@@ -3,6 +3,8 @@ import { requireAuth } from '../middlewares/auth.js';
 import {
   getCatalogoPublico,
   createPedidoPublico,
+  getCatalogoGeral,
+  createPedidoGeral,
   listCatalogos,
   getCatalogoById,
   getCatalogoItensArray,
@@ -15,6 +17,10 @@ import {
 // Roteador público (/catalogo)
 export const publicCatalogoRouter = Router();
 
+publicCatalogoRouter.get('/', getCatalogoGeral);
+publicCatalogoRouter.get('/geral', getCatalogoGeral);
+publicCatalogoRouter.post('/geral/pedido', createPedidoGeral);
+publicCatalogoRouter.post('/pedido', createPedidoGeral);
 publicCatalogoRouter.get('/:token_link', getCatalogoPublico);
 publicCatalogoRouter.post('/:token_link/pedido', createPedidoPublico);
 
