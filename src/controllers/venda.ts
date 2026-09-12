@@ -4,10 +4,10 @@ import { pool } from '../config/database.js';
 export const listVendas = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await pool.query(`
-      SELECT v.*, c.nome as nome_cliente, u.nome as nome_usuario
+      SELECT v.*, c.nome as nome_cliente, COALESCE(u.nome, 'Catálogo Online') as nome_usuario
       FROM vendas v
       JOIN clientes c ON v.id_cliente = c.id
-      JOIN usuarios u ON v.id_usuario = u.id
+      LEFT JOIN usuarios u ON v.id_usuario = u.id
       ORDER BY v.id DESC
     `);
     res.json(result.rows);
@@ -21,10 +21,10 @@ export const getVendaById = async (req: Request, res: Response, next: NextFuncti
     const { id } = req.params;
 
     const saleRes = await pool.query(`
-      SELECT v.*, c.nome as nome_cliente, c.email as email_cliente, u.nome as nome_usuario
+      SELECT v.*, c.nome as nome_cliente, c.email as email_cliente, COALESCE(u.nome, 'Catálogo Online') as nome_usuario
       FROM vendas v
       JOIN clientes c ON v.id_cliente = c.id
-      JOIN usuarios u ON v.id_usuario = u.id
+      LEFT JOIN usuarios u ON v.id_usuario = u.id
       WHERE v.id = $1
     `, [id]);
 
