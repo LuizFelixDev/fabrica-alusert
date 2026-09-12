@@ -438,7 +438,7 @@ export const getCatalogoById = async (req: Request, res: Response, next: NextFun
          p.preco_venda AS preco_padrao,
          ci.preco_negociado,
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco_efetivo,
-         COALESCE(ci.visivel, false) AS visivel,
+         COALESCE(ci.visivel, true) AS visivel,
          (ci.id IS NOT NULL) AS no_catalogo
        FROM produtos p
        LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
