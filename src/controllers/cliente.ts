@@ -3,6 +3,15 @@ import { pool } from '../config/database.js';
 
 export const listClientes = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { busca } = req.query;
+    if (busca && typeof busca === 'string' && busca.trim().length > 0) {
+      const searchTerm = `%${busca.trim()}%`;
+      const result = await pool.query(
+        'SELECT * FROM clientes WHERE nome ILIKE $1 OR cpf_cnpj ILIKE $1 ORDER BY id ASC',
+        [searchTerm]
+      );
+      return res.json(result.rows);
+    }
     const result = await pool.query('SELECT * FROM clientes ORDER BY id ASC');
     res.json(result.rows);
   } catch (error) {

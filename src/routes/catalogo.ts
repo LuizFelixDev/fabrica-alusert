@@ -5,6 +5,7 @@ import {
   createPedidoPublico,
   listCatalogos,
   getCatalogoById,
+  getCatalogoItensArray,
   createCatalogo,
   updateCatalogo,
   deleteCatalogo,
@@ -22,7 +23,10 @@ export const internalCatalogoRouter = Router();
 
 internalCatalogoRouter.get('/', requireAuth, listCatalogos);
 internalCatalogoRouter.get('/:id', requireAuth, getCatalogoById);
+internalCatalogoRouter.get('/:id/itens', requireAuth, getCatalogoItensArray);
 internalCatalogoRouter.post('/', requireAuth, createCatalogo);
 internalCatalogoRouter.put('/:id', requireAuth, updateCatalogo);
+internalCatalogoRouter.patch('/:id', requireAuth, updateCatalogo);
 internalCatalogoRouter.delete('/:id', requireAuth, deleteCatalogo);
 internalCatalogoRouter.put('/:id/itens', requireAuth, updateCatalogoItens);
+

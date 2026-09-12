@@ -188,6 +188,7 @@ export const createPedidoPublico = async (req: Request, res: Response, next: Nex
 
     res.status(201).json({
       message: 'Pedido criado com sucesso',
+      numero_pedido: `#${finalSale.id}`,
       id_pedido: finalSale.id,
       id_venda: finalSale.id,
       id_cliente: finalSale.id_cliente,
@@ -491,3 +492,83 @@ export const updateCatalogoItens = async (req: Request, res: Response, next: Nex
     client.release();
   }
 };
+
+/**
+ * POST /api/clientes/:id/catalogo
+ * Busca ou cria o catálogo de um cliente.
+ */
+export const getOrCreateClienteCatalogo = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const clientCheck = await pool.query('SELECT id, nome FROM clientes WHERE id = $1', [id]);
+    if (clientCheck.rows.length === 0) {
+      return res.status(404).json({ error: `Cliente com ID ${id} não encontrado.` });
+    }
+
+    const existingCat = await pool.query('SELECT * FROM catalogos WHERE id_cliente = $1 ORDER BY id DESC LIMIT 1', [id]);
+    if (existingCat.rows.length > 0) {
+      return res.json({
+        ...existingCat.rows[0],
+        nome: `Catálogo - ${clientCheck.rows[0].nome}`
+      });
+    }
+
+    const tokenLink = crypto.randomUUID();
+    const newCat = await pool.query(
+      `INSERT INTO catalogos (id_cliente, token_link, ativo)
+       VALUES ($1, $2, TRUE)
+       RETURNING *`,
+      [id, tokenLink]
+    );
+
+    res.status(201).json({
+      ...newCat.rows[0],
+      nome: `Catálogo - ${clientCheck.rows[0].nome}`
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/catalogos/:id/itens
+ * Retorna os itens formatados como array CatalogoItem[] para o painel.
+ */
+export const getCatalogoItensArray = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const catalogCheck = await pool.query('SELECT id FROM catalogos WHERE id = $1', [id]);
+    if (catalogCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Catálogo não encontrado' });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+         p.id AS id_produto,
+         p.nome AS nome_produto,
+         p.preco_venda AS preco_venda,
+         ci.preco_negociado,
+         COALESCE(ci.visivel, true) AS visivel
+       FROM produtos p
+       LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
+       WHERE p.status = TRUE
+       ORDER BY p.nome ASC`,
+      [id]
+    );
+
+    const items = result.rows.map(row => ({
+      id_produto: row.id_produto,
+      nome_produto: row.nome_produto,
+      preco_venda: Number(row.preco_venda),
+      preco_negociado: row.preco_negociado !== null ? Number(row.preco_negociado) : null,
+      visivel: Boolean(row.visivel)
+    }));
+
+    res.json(items);
+  } catch (error) {
+    next(error);
+  }
+};
+

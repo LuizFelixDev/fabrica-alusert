@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAuth } from '../middlewares/auth.js';
 import {
   listClientes,
   getClienteById,
@@ -6,11 +7,14 @@ import {
   updateCliente,
   deleteCliente,
 } from '../controllers/cliente.js';
+import { getOrCreateClienteCatalogo } from '../controllers/catalogo.js';
 
 export const router = Router();
 
-router.get('/', listClientes);
-router.get('/:id', getClienteById);
-router.post('/', createCliente);
-router.put('/:id', updateCliente);
-router.delete('/:id', deleteCliente);
+router.get('/', requireAuth, listClientes);
+router.get('/:id', requireAuth, getClienteById);
+router.post('/', requireAuth, createCliente);
+router.post('/:id/catalogo', requireAuth, getOrCreateClienteCatalogo);
+router.put('/:id', requireAuth, updateCliente);
+router.delete('/:id', requireAuth, deleteCliente);
+
