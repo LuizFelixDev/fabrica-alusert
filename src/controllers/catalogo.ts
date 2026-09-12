@@ -201,9 +201,9 @@ export const getCatalogoPublico = async (req: Request, res: Response, next: Next
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco,
          p.preco_venda AS preco_padrao,
          ci.preco_negociado
-       FROM catalogo_itens ci
-       JOIN produtos p ON ci.id_produto = p.id
-       WHERE ci.id_catalogo = $1 AND ci.visivel = TRUE AND p.status = TRUE
+       FROM produtos p
+       LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
+       WHERE p.status = TRUE AND COALESCE(ci.visivel, TRUE) = TRUE
        ORDER BY p.nome ASC`,
       [catalog.id]
     );
@@ -286,10 +286,10 @@ export const createPedidoPublico = async (req: Request, res: Response, next: Nex
 
       // Valida se o produto pertence ao catálogo e está visível
       const itemCheckRes = await client.query(
-        `SELECT ci.preco_negociado, ci.visivel, p.nome, p.preco_venda, p.quantidade_estoque, p.status
-         FROM catalogo_itens ci
-         JOIN produtos p ON ci.id_produto = p.id
-         WHERE ci.id_catalogo = $1 AND ci.id_produto = $2`,
+        `SELECT ci.preco_negociado, COALESCE(ci.visivel, TRUE) AS visivel, p.nome, p.preco_venda, p.quantidade_estoque, p.status
+         FROM produtos p
+         LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
+         WHERE p.id = $2`,
         [catalog.id, id_produto]
       );
 
