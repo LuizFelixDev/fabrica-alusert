@@ -69,7 +69,7 @@ export const createPedidoGeral = async (req: Request, res: Response, next: NextF
 
     const saleRes = await client.query(
       `INSERT INTO vendas (id_cliente, id_usuario, id_catalogo, forma_pagamento, status, valor_total)
-       VALUES (NULL, NULL, NULL, $1, 'pendente', 0.00)
+       VALUES (NULL, NULL, NULL, $1, 'pedido', 0.00)
        RETURNING *`,
       [formaPagamento]
     );
@@ -268,7 +268,7 @@ export const createPedidoPublico = async (req: Request, res: Response, next: Nex
     // 2. Cria registro de venda inicial
     const saleRes = await client.query(
       `INSERT INTO vendas (id_cliente, id_usuario, id_catalogo, forma_pagamento, status, valor_total)
-       VALUES ($1, $2, $3, $4, 'pendente', 0.00)
+       VALUES ($1, $2, $3, $4, 'pedido', 0.00)
        RETURNING *`,
       [catalog.id_cliente, idUsuario, catalog.id, formaPagamento]
     );

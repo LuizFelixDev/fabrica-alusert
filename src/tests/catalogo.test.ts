@@ -195,6 +195,7 @@ describe('Catálogos Personalizados por Cliente', () => {
       assert.ok(res.body.id_pedido);
       assert.strictEqual(res.body.id_cliente, clientId);
       assert.strictEqual(res.body.id_catalogo, catalogId);
+      assert.strictEqual(res.body.status, 'pedido');
 
       // O valor unitario resolvido no backend deve ser 39.90 (39.90 * 2 = 79.80), NÃO 1.00
       assert.strictEqual(res.body.valor_total, 79.80);

@@ -38,6 +38,7 @@ CREATE TYPE forma_pagamento_enum AS ENUM (
 );
 
 CREATE TYPE status_venda_enum AS ENUM (
+  'pedido',
   'pendente',
   'concluída',
   'cancelada'
