@@ -171,7 +171,7 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
 
     const itemsRes = await client.query('SELECT id_produto, quantidade FROM venda_itens WHERE id_venda = $1', [id]);
 
-    if ((currentStatus === 'pendente' || currentStatus === 'concluída') && status === 'cancelada') {
+    if ((currentStatus === 'pendente' || currentStatus === 'concluída' || currentStatus === 'pedido') && status === 'cancelada') {
       for (const item of itemsRes.rows) {
         await client.query(
           `UPDATE produtos 
@@ -182,7 +182,7 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
         );
       }
     }
-    else if (currentStatus === 'cancelada' && (status === 'pendente' || status === 'concluída')) {
+    else if (currentStatus === 'cancelada' && (status === 'pendente' || status === 'concluída' || status === 'pedido')) {
       for (const item of itemsRes.rows) {
         await client.query(
           'UPDATE produtos SET quantidade_estoque = quantidade_estoque - $1 WHERE id = $2',

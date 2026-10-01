@@ -25,6 +25,7 @@ export const getCatalogoGeral = async (req: Request, res: Response, next: NextFu
          p.peso_kg,
          p.preco_venda AS preco,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          NULL AS preco_negociado
        FROM produtos p
        WHERE p.status = TRUE
@@ -69,7 +70,7 @@ export const createPedidoGeral = async (req: Request, res: Response, next: NextF
 
     const saleRes = await client.query(
       `INSERT INTO vendas (id_cliente, id_usuario, id_catalogo, forma_pagamento, status, valor_total)
-       VALUES (NULL, NULL, NULL, $1, 'pendente', 0.00)
+       VALUES (NULL, NULL, NULL, $1, 'pedido', 0.00)
        RETURNING *`,
       [formaPagamento]
     );
@@ -200,6 +201,7 @@ export const getCatalogoPublico = async (req: Request, res: Response, next: Next
          p.peso_kg,
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          ci.preco_negociado
        FROM produtos p
        LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
@@ -268,7 +270,7 @@ export const createPedidoPublico = async (req: Request, res: Response, next: Nex
     // 2. Cria registro de venda inicial
     const saleRes = await client.query(
       `INSERT INTO vendas (id_cliente, id_usuario, id_catalogo, forma_pagamento, status, valor_total)
-       VALUES ($1, $2, $3, $4, 'pendente', 0.00)
+       VALUES ($1, $2, $3, $4, 'pedido', 0.00)
        RETURNING *`,
       [catalog.id_cliente, idUsuario, catalog.id, formaPagamento]
     );
@@ -436,9 +438,10 @@ export const getCatalogoById = async (req: Request, res: Response, next: NextFun
          p.unidade_medida,
          p.quantidade_estoque,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          ci.preco_negociado,
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco_efetivo,
-         COALESCE(ci.visivel, false) AS visivel,
+         COALESCE(ci.visivel, true) AS visivel,
          (ci.id IS NOT NULL) AS no_catalogo
        FROM produtos p
        LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
@@ -710,6 +713,7 @@ export const getCatalogoItensArray = async (req: Request, res: Response, next: N
          p.id AS id_produto,
          p.nome AS nome_produto,
          p.preco_venda AS preco_venda,
+         p.imagem,
          ci.preco_negociado,
          COALESCE(ci.visivel, true) AS visivel
        FROM produtos p
