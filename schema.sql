@@ -82,6 +82,7 @@ CREATE TABLE produtos (
   peso_kg DECIMAL(6,3),
   preco_custo DECIMAL(10,2),
   preco_venda DECIMAL(10,2),
+  imagem TEXT,
   status BOOLEAN DEFAULT TRUE,
   data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -25,6 +25,7 @@ export const getCatalogoGeral = async (req: Request, res: Response, next: NextFu
          p.peso_kg,
          p.preco_venda AS preco,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          NULL AS preco_negociado
        FROM produtos p
        WHERE p.status = TRUE
@@ -200,6 +201,7 @@ export const getCatalogoPublico = async (req: Request, res: Response, next: Next
          p.peso_kg,
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          ci.preco_negociado
        FROM produtos p
        LEFT JOIN catalogo_itens ci ON ci.id_produto = p.id AND ci.id_catalogo = $1
@@ -436,6 +438,7 @@ export const getCatalogoById = async (req: Request, res: Response, next: NextFun
          p.unidade_medida,
          p.quantidade_estoque,
          p.preco_venda AS preco_padrao,
+         p.imagem,
          ci.preco_negociado,
          COALESCE(ci.preco_negociado, p.preco_venda) AS preco_efetivo,
          COALESCE(ci.visivel, true) AS visivel,
@@ -710,6 +713,7 @@ export const getCatalogoItensArray = async (req: Request, res: Response, next: N
          p.id AS id_produto,
          p.nome AS nome_produto,
          p.preco_venda AS preco_venda,
+         p.imagem,
          ci.preco_negociado,
          COALESCE(ci.visivel, true) AS visivel
        FROM produtos p
