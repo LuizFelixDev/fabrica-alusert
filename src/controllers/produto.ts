@@ -66,7 +66,7 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
   try {
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
-      quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
+      quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status, imagem,
       materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
     } = req.body;
 
@@ -85,8 +85,8 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
     const productRes = await client.query(
       `INSERT INTO produtos (
         codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
-        quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status, data_cadastro, data_atualizacao
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, imagem, status, data_cadastro, data_atualizacao
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
        RETURNING *`,
       [
         finalCodigoBarras || null,
@@ -100,6 +100,7 @@ export const createProduto = async (req: Request, res: Response, next: NextFunct
         peso_kg !== undefined ? peso_kg : null,
         preco_custo !== undefined ? preco_custo : null,
         preco_venda !== undefined ? preco_venda : null,
+        imagem !== undefined ? imagem : null,
         status !== undefined ? status : true
       ]
     );
@@ -149,7 +150,7 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
     const { id } = req.params;
     const {
       codigo_barras, nome, descricao, categoria, tamanho_numero, unidade_medida,
-      quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status,
+      quantidade_estoque, estoque_minimo, peso_kg, preco_custo, preco_venda, status, imagem,
       materias_primas // Array of { id_materia_prima: number, quantidade_utilizada: number }
     } = req.body;
 
@@ -177,9 +178,9 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
     const productRes = await client.query(
       `UPDATE produtos SET
         codigo_barras = $1, nome = $2, descricao = $3, categoria = $4, tamanho_numero = $5,
-        unidade_medida = $6, quantidade_estoque = $7, estoque_minimo = $8, peso_kg = $9, preco_custo = $10, preco_venda = $11, status = $12,
+        unidade_medida = $6, quantidade_estoque = $7, estoque_minimo = $8, peso_kg = $9, preco_custo = $10, preco_venda = $11, imagem = $12, status = $13,
         data_atualizacao = NOW()
-       WHERE id = $13
+       WHERE id = $14
        RETURNING *`,
       [
         finalCodigoBarras,
@@ -193,6 +194,7 @@ export const updateProduto = async (req: Request, res: Response, next: NextFunct
         peso_kg !== undefined ? peso_kg : current.peso_kg,
         preco_custo !== undefined ? preco_custo : current.preco_custo,
         preco_venda !== undefined ? preco_venda : current.preco_venda,
+        imagem !== undefined ? imagem : current.imagem,
         status !== undefined ? status : current.status,
         id
       ]
