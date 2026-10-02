@@ -462,7 +462,8 @@ export const getCatalogoById = async (req: Request, res: Response, next: NextFun
         preco_negociado: row.preco_negociado !== null ? Number(row.preco_negociado) : null,
         preco_efetivo: Number(row.preco_efetivo),
         visivel: Boolean(row.visivel),
-        no_catalogo: Boolean(row.no_catalogo)
+        no_catalogo: Boolean(row.no_catalogo),
+        imagem: row.imagem
       }))
     });
   } catch (error) {
