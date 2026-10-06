@@ -52,7 +52,7 @@ export const getVendaById = async (req: Request, res: Response, next: NextFuncti
 export const createVenda = async (req: Request, res: Response, next: NextFunction) => {
   const client = await pool.connect();
   try {
-    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque } = req.body;
+    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
 
     if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
@@ -72,15 +72,19 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
       throw new Error(`Usuário com ID ${id_usuario} não encontrado`);
     }
 
+    const initialStatus = status || 'pendente';
+    const initialValorPago = valor_pago !== undefined && valor_pago !== null ? Number(valor_pago) : 0;
+
     const saleRes = await client.query(
-      `INSERT INTO vendas (id_cliente, id_usuario, forma_pagamento, status, valor_total, data_vencimento_cheque)
-       VALUES ($1, $2, $3, $4, 0.00, $5)
+      `INSERT INTO vendas (id_cliente, id_usuario, forma_pagamento, status, valor_total, valor_pago, data_vencimento_cheque)
+       VALUES ($1, $2, $3, $4, 0.00, $5, $6)
        RETURNING *`,
       [
         id_cliente, 
         id_usuario, 
         forma_pagamento, 
-        status || 'pendente', 
+        initialStatus, 
+        initialValorPago,
         forma_pagamento === 'Cheque' ? (data_vencimento_cheque || null) : null
       ]
     );
@@ -106,7 +110,7 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
         throw new Error(`Preço de venda não definido para o produto "${product.nome}"`);
       }
 
-      if (status !== 'cancelada') {
+      if (initialStatus !== 'cancelada') {
         const stockQty = Number(product.quantidade_estoque || 0);
         const shortage = Math.max(0, quantidade - Math.max(0, stockQty));
 
@@ -128,9 +132,14 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
       total += Number(unitPrice) * quantidade;
     }
 
+    let finalValorPago = initialValorPago;
+    if (initialStatus === 'concluída' && (valor_pago === undefined || valor_pago === null)) {
+      finalValorPago = total;
+    }
+
     const updateSaleRes = await client.query(
-      'UPDATE vendas SET valor_total = $1 WHERE id = $2 RETURNING *',
-      [total, sale.id]
+      'UPDATE vendas SET valor_total = $1, valor_pago = $2 WHERE id = $3 RETURNING *',
+      [total, finalValorPago, sale.id]
     );
 
     await client.query('COMMIT');
@@ -158,11 +167,12 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
 
     await client.query('BEGIN');
 
-    const currentSaleRes = await client.query('SELECT status FROM vendas WHERE id = $1', [id]);
+    const currentSaleRes = await client.query('SELECT * FROM vendas WHERE id = $1', [id]);
     if (currentSaleRes.rows.length === 0) {
       return res.status(404).json({ error: 'Venda não encontrada' });
     }
-    const currentStatus = currentSaleRes.rows[0].status;
+    const currentSale = currentSaleRes.rows[0];
+    const currentStatus = currentSale.status;
 
     if (currentStatus === status) {
       await client.query('COMMIT');
@@ -191,9 +201,14 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
       }
     }
 
+    let updatedValorPago = Number(currentSale.valor_pago || 0);
+    if (status === 'concluída' && updatedValorPago < Number(currentSale.valor_total)) {
+      updatedValorPago = Number(currentSale.valor_total);
+    }
+
     const result = await client.query(
-      'UPDATE vendas SET status = $1 WHERE id = $2 RETURNING *',
-      [status, id]
+      'UPDATE vendas SET status = $1, valor_pago = $2 WHERE id = $3 RETURNING *',
+      [status, updatedValorPago, id]
     );
 
     await client.query('COMMIT');
@@ -201,6 +216,46 @@ export const updateVendaStatus = async (req: Request, res: Response, next: NextF
   } catch (error: any) {
     await client.query('ROLLBACK');
     res.status(400).json({ error: error.message || 'Erro ao atualizar status da venda' });
+  } finally {
+    client.release();
+  }
+};
+
+export const updatePagamentoVenda = async (req: Request, res: Response, next: NextFunction) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { valor_pago, status } = req.body;
+
+    if (valor_pago === undefined || valor_pago === null || isNaN(Number(valor_pago))) {
+      return res.status(400).json({ error: 'Campo valor_pago numérico é obrigatório' });
+    }
+
+    await client.query('BEGIN');
+
+    const saleRes = await client.query('SELECT * FROM vendas WHERE id = $1', [id]);
+    if (saleRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Venda não encontrada' });
+    }
+    const sale = saleRes.rows[0];
+    const newValorPago = Math.max(0, Number(valor_pago));
+    const totalVal = Number(sale.valor_total);
+
+    let targetStatus = status || sale.status;
+    if (!status && newValorPago >= totalVal && (sale.status === 'pendente' || sale.status === 'pedido')) {
+      targetStatus = 'concluída';
+    }
+
+    const result = await client.query(
+      'UPDATE vendas SET valor_pago = $1, status = $2 WHERE id = $3 RETURNING *',
+      [newValorPago, targetStatus, id]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: error.message || 'Erro ao atualizar pagamento da venda' });
   } finally {
     client.release();
   }
@@ -248,7 +303,7 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque } = req.body;
+    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
 
     if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
@@ -320,17 +375,22 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
       total += Number(unitPrice) * quantidade;
     }
 
+    let finalValorPago = valor_pago !== undefined && valor_pago !== null 
+      ? Number(valor_pago) 
+      : (targetStatus === 'concluída' ? total : Number(currentSale.valor_pago || 0));
+
     // Update sale record
     const updateSaleRes = await client.query(
       `UPDATE vendas 
-       SET id_cliente = $1, id_usuario = $2, forma_pagamento = $3, status = $4, valor_total = $5, data_vencimento_cheque = $6
-       WHERE id = $7 RETURNING *`,
+       SET id_cliente = $1, id_usuario = $2, forma_pagamento = $3, status = $4, valor_total = $5, valor_pago = $6, data_vencimento_cheque = $7
+       WHERE id = $8 RETURNING *`,
       [
         id_cliente,
         id_usuario,
         forma_pagamento,
         targetStatus,
         total,
+        finalValorPago,
         forma_pagamento === 'Cheque' ? (data_vencimento_cheque || null) : null,
         id
       ]

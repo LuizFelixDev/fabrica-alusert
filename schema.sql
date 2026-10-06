@@ -139,6 +139,7 @@ CREATE TABLE vendas (
   forma_pagamento forma_pagamento_enum NOT NULL,
   status status_venda_enum NOT NULL DEFAULT 'pendente',
   valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_pago DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   data_vencimento_cheque DATE
 );
 
