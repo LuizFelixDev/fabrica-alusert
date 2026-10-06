@@ -52,6 +52,7 @@ pool.connect(async (err, client, release) => {
           );
 
           ALTER TABLE vendas ADD COLUMN IF NOT EXISTS id_catalogo INT REFERENCES catalogos(id) ON DELETE SET NULL;
+          ALTER TABLE vendas ADD COLUMN IF NOT EXISTS valor_pago DECIMAL(10,2) NOT NULL DEFAULT 0.00;
         `);
       }
     } catch (migErr) {
