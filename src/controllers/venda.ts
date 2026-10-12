@@ -4,7 +4,7 @@ import { pool } from '../config/database.js';
 export const listVendas = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await pool.query(`
-      SELECT v.*, COALESCE(c.nome, 'Cliente Geral (Site Público)') as nome_cliente, COALESCE(u.nome, 'Catálogo Online') as nome_usuario
+      SELECT v.*, COALESCE(c.nome, 'Cliente Geral (Site Público)') as nome_cliente, COALESCE(v.vendedor, u.nome, 'Catálogo Online') as nome_usuario
       FROM vendas v
       LEFT JOIN clientes c ON v.id_cliente = c.id
       LEFT JOIN usuarios u ON v.id_usuario = u.id
@@ -21,7 +21,7 @@ export const getVendaById = async (req: Request, res: Response, next: NextFuncti
     const { id } = req.params;
 
     const saleRes = await pool.query(`
-      SELECT v.*, COALESCE(c.nome, 'Cliente Geral (Site Público)') as nome_cliente, c.email as email_cliente, COALESCE(u.nome, 'Catálogo Online') as nome_usuario
+      SELECT v.*, COALESCE(c.nome, 'Cliente Geral (Site Público)') as nome_cliente, c.email as email_cliente, COALESCE(v.vendedor, u.nome, 'Catálogo Online') as nome_usuario
       FROM vendas v
       LEFT JOIN clientes c ON v.id_cliente = c.id
       LEFT JOIN usuarios u ON v.id_usuario = u.id
@@ -52,7 +52,7 @@ export const getVendaById = async (req: Request, res: Response, next: NextFuncti
 export const createVenda = async (req: Request, res: Response, next: NextFunction) => {
   const client = await pool.connect();
   try {
-    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
+    const { id_cliente, id_usuario, vendedor, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
 
     if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
@@ -76,12 +76,13 @@ export const createVenda = async (req: Request, res: Response, next: NextFunctio
     const initialValorPago = valor_pago !== undefined && valor_pago !== null ? Number(valor_pago) : 0;
 
     const saleRes = await client.query(
-      `INSERT INTO vendas (id_cliente, id_usuario, forma_pagamento, status, valor_total, valor_pago, data_vencimento_cheque)
-       VALUES ($1, $2, $3, $4, 0.00, $5, $6)
+      `INSERT INTO vendas (id_cliente, id_usuario, vendedor, forma_pagamento, status, valor_total, valor_pago, data_vencimento_cheque)
+       VALUES ($1, $2, $3, $4, $5, 0.00, $6, $7)
        RETURNING *`,
       [
         id_cliente, 
         id_usuario, 
+        vendedor ? String(vendedor).trim() : null,
         forma_pagamento, 
         initialStatus, 
         initialValorPago,
@@ -303,7 +304,7 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { id_cliente, id_usuario, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
+    const { id_cliente, id_usuario, vendedor, forma_pagamento, status, itens, data_vencimento_cheque, valor_pago } = req.body;
 
     if (!id_cliente || !id_usuario || !forma_pagamento || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({ error: 'Campos id_cliente, id_usuario, forma_pagamento e itens são obrigatórios' });
@@ -379,14 +380,19 @@ export const updateVenda = async (req: Request, res: Response, next: NextFunctio
       ? Number(valor_pago) 
       : (targetStatus === 'concluída' ? total : Number(currentSale.valor_pago || 0));
 
+    const finalVendedor = vendedor !== undefined 
+      ? (vendedor ? String(vendedor).trim() : null) 
+      : currentSale.vendedor;
+
     // Update sale record
     const updateSaleRes = await client.query(
       `UPDATE vendas 
-       SET id_cliente = $1, id_usuario = $2, forma_pagamento = $3, status = $4, valor_total = $5, valor_pago = $6, data_vencimento_cheque = $7
-       WHERE id = $8 RETURNING *`,
+       SET id_cliente = $1, id_usuario = $2, vendedor = $3, forma_pagamento = $4, status = $5, valor_total = $6, valor_pago = $7, data_vencimento_cheque = $8
+       WHERE id = $9 RETURNING *`,
       [
         id_cliente,
         id_usuario,
+        finalVendedor,
         forma_pagamento,
         targetStatus,
         total,

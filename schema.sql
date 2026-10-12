@@ -134,6 +134,7 @@ CREATE TABLE vendas (
   id SERIAL PRIMARY KEY,
   id_cliente INT REFERENCES clientes(id) ON DELETE RESTRICT,
   id_usuario INT REFERENCES usuarios(id) ON DELETE RESTRICT,
+  vendedor VARCHAR(100),
   id_catalogo INT REFERENCES catalogos(id) ON DELETE SET NULL,
   data_venda TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   forma_pagamento forma_pagamento_enum NOT NULL,
